@@ -110,6 +110,9 @@ import java.util.Map;
  * @since 2.0
  */
 @Component
+/**
+ * 系统监控测量提供者，扩展自静态测量提供者，用于定期收集和报告系统监控数据。
+ */
 public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider {
 
     private final SystemMonitorService monitorService = new SystemMonitorServiceImpl();
@@ -125,35 +128,49 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
     private final Disposable.Composite disposable = Disposables.composite();
 
 
+    /**
+     * 构造函数，初始化系统监控测量提供者。
+     *
+     * @param timeSeriesManager 时间序列管理器，用于注册监控指标和收集数据。
+     */
     public SystemMonitorMeasurementProvider(TimeSeriesManager timeSeriesManager) {
         super(DefaultDashboardDefinition.systemMonitor, MonitorObjectDefinition.stats);
         this.timeSeriesManager = timeSeriesManager;
 
+        // 添加基本信息和历史信息的测量维度
         addMeasurement(new StaticMeasurement(CommonMeasurementDefinition.info)
             .addDimension(new RealTimeDimension())
             .addDimension(new HistoryDimension())
         );
 
+        // 创建单线程调度器，用于定时任务
         this.scheduler = Schedulers.newSingle("system-monitor-collector");
 
+        // 绑定资源，确保调度器被正确清理
         disposable.add(this.scheduler);
     }
 
+    /**
+     * 销毁方法，清理资源。
+     */
     @PreDestroy
     public void destroy() {
         disposable.dispose();
     }
 
+    /**
+     * 初始化方法，注册监控指标并启动数据收集任务。
+     */
     @PostConstruct
     public void init() {
-        //注册监控信息
+        // 注册监控信息
         timeSeriesManager
             .registerMetadata(
                 TimeSeriesMetadata.of(metric)
             )
             .block(Duration.ofSeconds(10));
 
-        //定时收集监控信息
+        // 定时收集监控信息
         disposable.add(Flux
             .interval(collectInterval, scheduler)
             .flatMap(ignore -> monitorService
@@ -165,6 +182,12 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
         );
     }
 
+    /**
+     * 将系统信息转换为键值对映射。
+     *
+     * @param info 系统信息源。
+     * @return 转换后的键值对映射，适配时间序列数据格式。
+     */
     private void putTo(String prefix, MonitorInfo<?> source, Map<String, Object> target) {
         Map<String, Object> data = FastBeanCopier.copy(source, new HashMap<>());
         data.forEach((key, value) -> {
@@ -174,6 +197,12 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
         });
     }
 
+    /**
+     * 将系统信息映射为时间序列数据。
+     *
+     * @param info 系统信息。
+     * @return 时间序列数据实例。
+     */
     public TimeSeriesData systemInfoToMap(SystemInfo info) {
         Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(12);
         putTo("cpu", info.getCpu(), map);
@@ -182,7 +211,7 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
         return TimeSeriesData.of(System.currentTimeMillis(), map);
     }
 
-    //历史记录
+    // 历史记录维度实现
     class HistoryDimension implements MeasurementDimension {
 
         @Override
@@ -205,6 +234,12 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
             return false;
         }
 
+        /**
+         * 获取指定时间范围内的历史监控数据。
+         *
+         * @param parameter 包含查询参数的测量参数。
+         * @return 历史监控数据的测量值流。
+         */
         @Override
         public Flux<? extends MeasurementValue> getValue(MeasurementParameter parameter) {
             Date from = parameter.getDate("from", TimeUtils.parseDate("now-1h"));
@@ -219,7 +254,7 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
         }
     }
 
-    //实时监控
+    // 实时监控维度实现
     class RealTimeDimension implements MeasurementDimension {
 
         @Override
@@ -234,7 +269,6 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
 
         @Override
         public ConfigMetadata getParams() {
-
             return new DefaultConfigMetadata()
                 .add("interval", "更新频率", StringType.GLOBAL)
                 .add("type", "指标类型", new EnumType()
@@ -250,8 +284,13 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
             return true;
         }
 
+        /**
+         * 获取实时监控数据。
+         *
+         * @param parameter 包含查询参数的测量参数。
+         * @return 实时监控数据的测量值流。
+         */
         @Override
-        @SuppressWarnings("all")
         public Publisher<? extends MeasurementValue> getValue(MeasurementParameter parameter) {
             Duration interval = parameter.getDuration("interval", Duration.ofSeconds(1));
             String type = parameter.getString("type", "all");
@@ -266,6 +305,13 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
                 .map(info -> SimpleMeasurementValue.of(info, System.currentTimeMillis()));
         }
 
+        /**
+         * 根据类型获取系统监控信息。
+         *
+         * @param service 系统监控服务。
+         * @param type 监控信息类型。
+         * @return 指定类型的系统监控信息。
+         */
         private Mono<? extends MonitorInfo<?>> info(SystemMonitorService service, String type) {
             Mono<? extends MonitorInfo<?>> data;
             switch (type) {
@@ -285,8 +331,6 @@ public class SystemMonitorMeasurementProvider extends StaticMeasurementProvider 
             return data
                 .onErrorResume(err -> Mono.empty());
         }
-
-
     }
-
 }
+

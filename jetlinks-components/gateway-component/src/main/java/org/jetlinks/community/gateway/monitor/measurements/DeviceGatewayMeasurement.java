@@ -21,16 +21,32 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 
+/**
+ * DeviceGatewayMeasurement 类扩展了 StaticMeasurement，用于处理设备网关的测量数据。
+ * 它支持历史数据和聚合数据的查询。
+ */
 class DeviceGatewayMeasurement extends StaticMeasurement {
 
-        private TimeSeriesManager timeSeriesManager;
+    // 时间序列管理器，用于管理和查询时间序列数据
+    private TimeSeriesManager timeSeriesManager;
 
-        private String type;
+    // 测量类型
+    private String type;
 
-        private Aggregation defaultAgg;
+    // 默认聚合方式
+    private Aggregation defaultAgg;
 
-        private String property;
+    // 属性名，指定测量的属性
+    private String property;
 
+    /**
+     * 构造函数，初始化设备网关测量实例。
+     *
+     * @param definition 测量定义
+     * @param property 属性名
+     * @param defaultAgg 默认聚合方式
+     * @param timeSeriesManager 时间序列管理器
+     */
     public DeviceGatewayMeasurement(MeasurementDefinition definition,
                                     String property,
                                     Aggregation defaultAgg,
@@ -44,6 +60,7 @@ class DeviceGatewayMeasurement extends StaticMeasurement {
         addDimension(new HistoryDimension());
     }
 
+    // 历史数据配置元数据，定义了查询历史数据时可用的参数
     static ConfigMetadata historyConfigMetadata = new DefaultConfigMetadata()
         .add("gatewayId", "网关", "", new StringType())
         .add("time", "周期", "例如: 1h,10m,30s", new StringType())
@@ -52,31 +69,61 @@ class DeviceGatewayMeasurement extends StaticMeasurement {
         .add("from", "时间从", "", new DateTimeType().format("yyyy-MM-dd HH:mm:ss"))
         .add("to", "时间至", "", new DateTimeType().format("yyyy-MM-dd HH:mm:ss"));
 
-
+    /**
+     * HistoryDimension 类实现了 MeasurementDimension 接口，
+     * 用于处理和获取设备网关的历史数据。
+     */
     class HistoryDimension implements MeasurementDimension {
 
+        /**
+         * 获取维度定义。
+         *
+         * @return 维度定义
+         */
         @Override
         public DimensionDefinition getDefinition() {
             return CommonDimensionDefinition.history;
         }
 
+        /**
+         * 获取数据类型。
+         *
+         * @return 数据类型
+         */
         @Override
         public DataType getValueType() {
             return new IntType();
         }
 
+        /**
+         * 获取配置元数据。
+         *
+         * @return 配置元数据
+         */
         @Override
         public ConfigMetadata getParams() {
             return historyConfigMetadata;
         }
 
+        /**
+         * 判断是否为实时数据。
+         *
+         * @return false，表示不是实时数据
+         */
         @Override
         public boolean isRealTime() {
             return false;
         }
 
+        /**
+         * 根据参数获取历史数据值。
+         *
+         * @param parameter 查询参数
+         * @return 数据流
+         */
         @Override
         public Flux<SimpleMeasurementValue> getValue(MeasurementParameter parameter) {
+            // 构建查询条件并执行查询，返回指定条件的历史数据
             return QueryParamEntity.newQuery()
                 .where("target", type)
                 .is("name", parameter.getString("gatewayId").orElse(null))
@@ -93,7 +140,7 @@ class DeviceGatewayMeasurement extends StaticMeasurement {
         }
     }
 
-
+    // 聚合数据配置元数据，定义了查询聚合数据时可用的参数
     static ConfigMetadata aggConfigMetadata = new DefaultConfigMetadata()
         .add("gatewayId", "网关", "", new StringType())
         .add("time", "周期", "例如: 1h,10m,30s", new StringType())
@@ -108,33 +155,61 @@ class DeviceGatewayMeasurement extends StaticMeasurement {
         .add("from", "时间从", "", new DateTimeType().format("yyyy-MM-dd HH:mm:ss"))
         .add("to", "时间至", "", new DateTimeType().format("yyyy-MM-dd HH:mm:ss"));
 
-
-    //聚合数据
+    /**
+     * AggDeviceStateDimension 类实现了 MeasurementDimension 接口，
+     * 用于处理和获取设备网关的聚合数据。
+     */
     class AggDeviceStateDimension implements MeasurementDimension {
 
+        /**
+         * 获取维度定义。
+         *
+         * @return 维度定义
+         */
         @Override
         public DimensionDefinition getDefinition() {
             return CommonDimensionDefinition.agg;
         }
 
+        /**
+         * 获取数据类型。
+         *
+         * @return 数据类型
+         */
         @Override
         public DataType getValueType() {
             return new IntType();
         }
 
+        /**
+         * 获取配置元数据。
+         *
+         * @return 配置元数据
+         */
         @Override
         public ConfigMetadata getParams() {
             return aggConfigMetadata;
         }
 
+        /**
+         * 判断是否为实时数据。
+         *
+         * @return false，表示不是实时数据
+         */
         @Override
         public boolean isRealTime() {
             return false;
         }
 
+        /**
+         * 根据参数获取聚合数据值。
+         *
+         * @param parameter 查询参数
+         * @return 数据流
+         */
         @Override
         public Flux<SimpleMeasurementValue> getValue(MeasurementParameter parameter) {
-
+            // 构建聚合查询条件并执行查询，返回指定条件的聚合数据
             return AggregationQueryParam.of()
                 .agg(property, parameter.get("agg", Aggregation.class).orElse(defaultAgg))
                 .groupBy(parameter.getInterval("time").orElse(Interval.ofHours(1)),
@@ -156,3 +231,4 @@ class DeviceGatewayMeasurement extends StaticMeasurement {
     }
 
 }
+

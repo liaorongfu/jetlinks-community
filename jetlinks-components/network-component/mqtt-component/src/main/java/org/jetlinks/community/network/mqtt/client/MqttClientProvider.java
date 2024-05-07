@@ -33,6 +33,10 @@ import javax.annotation.Nullable;
 @Component
 @Slf4j
 @ConfigurationProperties(prefix = "jetlinks.network.mqtt-client")
+/**
+ * MqttClientProvider类负责提供MQTT客户端连接服务。
+ * 它实现了NetworkProvider接口，以支持创建和管理MQTT客户端网络连接。
+ */
 public class MqttClientProvider implements NetworkProvider<MqttClientProperties> {
 
     private final Vertx vertx;
@@ -46,6 +50,12 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
     private MqttClientOptions template = new MqttClientOptions();
 
 
+    /**
+     * 构造函数初始化MQTT客户端提供者。
+     * @param certificateManager 证书管理器，用于处理TLS连接的证书。
+     * @param vertx Vertx实例，用于创建MQTT客户端。
+     * @param environment 环境变量，用于配置MQTT客户端选项。
+     */
     public MqttClientProvider(CertificateManager certificateManager,
                               Vertx vertx,
                               Environment environment) {
@@ -53,7 +63,6 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
         this.certificateManager = certificateManager;
         this.environment = environment;
         template.setTcpKeepAlive(true);
-//        options.setReconnectAttempts(10);
         template.setAutoKeepAlive(true);
         template.setKeepAliveInterval(180);
     }
@@ -64,6 +73,11 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
         return DefaultNetworkType.MQTT_CLIENT;
     }
 
+    /**
+     * 创建一个新的MQTT网络连接。
+     * @param properties MQTT客户端属性，用于配置MQTT连接。
+     * @return 返回一个表示MQTT网络连接的Mono对象。
+     */
     @Nonnull
     @Override
     public Mono<Network> createNetwork(@Nonnull MqttClientProperties properties) {
@@ -71,6 +85,12 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
         return initMqttClient(mqttClient, properties);
     }
 
+    /**
+     * 重新加载MQTT网络连接配置。
+     * @param network 当前网络连接。
+     * @param properties 新的MQTT客户端属性。
+     * @return 返回一个表示更新后的MQTT网络连接的Mono对象。
+     */
     @Override
     public Mono<Network> reload(@Nonnull Network network, @Nonnull MqttClientProperties properties) {
         VertxMqttClient mqttClient = ((VertxMqttClient) network);
@@ -80,6 +100,12 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
         return initMqttClient(mqttClient, properties);
     }
 
+    /**
+     * 初始化MQTT客户端。
+     * @param mqttClient MQTT客户端实例。
+     * @param properties MQTT客户端属性。
+     * @return 返回一个表示初始化后的MQTT网络连接的Mono对象。
+     */
     public Mono<Network> initMqttClient(VertxMqttClient mqttClient, MqttClientProperties properties) {
         return convert(properties)
             .map(options -> {
@@ -87,6 +113,7 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
                 mqttClient.setLoading(true);
                 MqttClient client = MqttClient.create(vertx, options);
                 mqttClient.setClient(client);
+                // 连接到MQTT服务器
                 client.connect(properties.getRemotePort(), properties.getRemoteHost(), result -> {
                     mqttClient.setLoading(false);
                     if (!result.succeeded()) {
@@ -103,6 +130,10 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
             });
     }
 
+    /**
+     * 获取配置元数据。
+     * @return 返回描述MQTT客户端配置的元数据的ConfigMetadata对象。
+     */
     @Nullable
     @Override
     public ConfigMetadata getConfigMetadata() {
@@ -117,6 +148,11 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
             .add("password", "密码", "", new BooleanType());
     }
 
+    /**
+     * 创建MQTT客户端配置。
+     * @param properties 网络属性，用于初始化MQTT客户端配置。
+     * @return 返回一个表示配置好的MQTT客户端属性的Mono对象。
+     */
     @Nonnull
     @Override
     public Mono<MqttClientProperties> createConfig(@Nonnull NetworkProperties properties) {
@@ -131,19 +167,24 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
     }
 
 
+    /**
+     * 转换MQTT客户端属性到选项。
+     * @param config MQTT客户端配置。
+     * @return 返回一个表示配置好的MQTT客户端选项的Mono对象。
+     */
     private Mono<MqttClientOptions> convert(MqttClientProperties config) {
         MqttClientOptions options = FastBeanCopier.copy(config, new MqttClientOptions(template));
 
+        // 设置客户端ID、用户名、密码
         String clientId = String.valueOf(config.getClientId());
-
         String username = config.getUsername();
-
         String password = config.getPassword();
 
         options.setClientId(clientId);
         options.setPassword(password);
         options.setUsername(username);
 
+        // 如果启用了TLS，配置证书
         if (config.isSecure()) {
             options.setSsl(true);
             return certificateManager
@@ -161,3 +202,4 @@ public class MqttClientProvider implements NetworkProvider<MqttClientProperties>
         return true;
     }
 }
+

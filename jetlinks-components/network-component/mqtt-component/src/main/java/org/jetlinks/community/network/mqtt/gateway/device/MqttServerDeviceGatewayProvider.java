@@ -67,9 +67,16 @@ public class MqttServerDeviceGatewayProvider implements DeviceGatewayProvider {
         return 0;
     }
 
+    /**
+     * 创建一个设备网关实例。
+     *
+     * @param properties 设备网关的属性，包含设备网关的配置信息，如通道ID等。
+     * @return 返回一个Mono类型的DeviceGateway实例，表示异步创建操作的结果。
+     */
     @Override
     public Mono<DeviceGateway> createDeviceGateway(DeviceGatewayProperties properties) {
 
+        // 通过网络管理器获取指定类型的网络服务，然后映射为MqttServerDeviceGateway实例
         return networkManager
             .<MqttServer>getNetwork(getNetworkType(), properties.getChannelId())
             .map(mqttServer -> new MqttServerDeviceGateway(
@@ -82,20 +89,33 @@ public class MqttServerDeviceGatewayProvider implements DeviceGatewayProvider {
             ));
     }
 
+
+    /**
+     * 重新加载设备网关。
+     * 如果给定的设备网关的网络组件ID与属性中的网络ID不匹配，则关闭当前网关实例，
+     * 并基于给定属性创建并启动一个新的网关实例。如果匹配，则不进行任何操作，直接返回当前网关实例。
+     *
+     * @param gateway 当前的设备网关实例，需要进行重新加载操作。
+     * @param properties 设备网关的属性，包含需要使用的配置信息，如网络ID。
+     * @return 返回一个Mono对象，包含重新加载后的设备网关实例。如果重新加载导致网关实例更换，则返回新的实例；否则返回相同的实例。
+     */
     @Override
     public Mono<? extends DeviceGateway> reloadDeviceGateway(DeviceGateway gateway,
                                                              DeviceGatewayProperties properties) {
         MqttServerDeviceGateway deviceGateway = ((MqttServerDeviceGateway) gateway);
 
         String networkId = properties.getChannelId();
-        //网络组件发生了变化
+        // 检查网络组件ID是否发生变化
         if (!Objects.equals(networkId, deviceGateway.getMqttServer().getId())) {
+            // 如果网络ID发生变化，则关闭当前网关，创建并启动新网关
             return gateway
-                .shutdown()
+                .shutdown() // 关闭当前网关
                 .then(this
-                    .createDeviceGateway(properties)
-                    .flatMap(gate -> gate.startup().thenReturn(gate)));
+                    .createDeviceGateway(properties) // 创建新网关
+                    .flatMap(gate -> gate.startup().thenReturn(gate))); // 启动新网关并返回
         }
+        // 如果网络ID未发生变化，直接返回当前网关
         return Mono.just(gateway);
     }
+
 }
