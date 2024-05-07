@@ -234,7 +234,7 @@ public class DefaultDeviceGatewayManager implements DeviceGatewayManager {
      */
     @Override
     public Mono<ChannelInfo> getChannel(String channel, String channelId) {
-        if (!StringUtils.hasText(channel) || !StringUtils.hasText(channel)) {
+        if (!StringUtils.hasText(channel) || !StringUtils.hasText(channelId)) {
             return Mono.empty();
         }
         return Mono.justOrEmpty(channels.get(channel))
