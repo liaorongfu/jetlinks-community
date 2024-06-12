@@ -11,6 +11,11 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 设备日志类型的枚举，用于表示设备操作的不同类型。
+ * 实现了EnumDict接口，以便将枚举值与字符串值映射。
+ * @author Rabbuse
+ */
 @AllArgsConstructor
 @Getter
 public enum DeviceLogType implements EnumDict<String> {
@@ -32,19 +37,30 @@ public enum DeviceLogType implements EnumDict<String> {
     online("上线"),
     other("其它");
 
-
+    /**
+     * 与枚举值对应的文本描述。
+     */
     @JSONField(serialize = false)
     private final String text;
 
+    /**
+     * 返回枚举值的名称。
+     *
+     * @return 枚举值的名称。
+     */
     @Override
     public String getValue() {
         return name();
     }
 
+    /**
+     * 用于将MessageType映射到DeviceLogType的静态映射表。
+     * 这允许在设备消息和日志类型之间进行快速转换。
+     */
     private final static Map<MessageType, DeviceLogType> typeMapping = new EnumMap<>(MessageType.class);
 
     static {
-
+        // 初始化类型映射表，将每个MessageType映射到相应的DeviceLogType。
         typeMapping.put(MessageType.EVENT, event);
         typeMapping.put(MessageType.ONLINE, online);
         typeMapping.put(MessageType.OFFLINE, offline);
@@ -65,15 +81,17 @@ public enum DeviceLogType implements EnumDict<String> {
 
         typeMapping.put(MessageType.REGISTER, register);
         typeMapping.put(MessageType.UN_REGISTER, unregister);
-
     }
 
+    /**
+     * 根据设备消息的类型返回相应的设备日志类型。
+     * 如果找不到匹配的日志类型，则返回other。
+     *
+     * @param message 设备消息对象。
+     * @return 对应的设备日志类型。
+     */
     public static DeviceLogType of(DeviceMessage message) {
         return Optional.ofNullable(typeMapping.get(message.getMessageType())).orElse(DeviceLogType.other);
-
     }
-//    @Override
-//    public Object getWriteJSONObject() {
-//        return getValue();
-//    }
 }
+

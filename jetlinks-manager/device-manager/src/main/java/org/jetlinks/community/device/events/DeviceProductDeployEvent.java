@@ -7,6 +7,7 @@ import org.hswebframework.web.event.DefaultAsyncEvent;
 import java.util.Map;
 
 /**
+ * 设备产品部署事件
  * @author bsetfeng
  * @since 1.0
  **/
